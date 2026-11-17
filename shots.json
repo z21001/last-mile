@@ -1,0 +1,6 @@
+[
+  { "name": "1-run", "query": "?shot=run&seed=7" },
+  { "name": "2-title", "query": "?shot=title&seed=7" },
+  { "name": "3-safehouse", "query": "?shot=safehouse&seed=7" },
+  { "name": "4-caught", "query": "?shot=caught&seed=7" }
+]
