@@ -42,7 +42,30 @@ export const SAFEHOUSE = { every: 1000 };
 export const COMBO = { window: 2.0, step: 0.25, maxSteps: 12 };
 
 /** Score for each thing the run earns. */
-export const SCORE = { perMetre: 1, kill: 25, stomp: 40, scrap: 15, safehouse: 250 };
+export const SCORE = { perMetre: 1, kill: 25, stomp: 40, scrap: 15, safehouse: 250, rescue: 100, boss: 1000, evac: 5000, evacPerSurvivor: 500 };
+
+/** The goal: the last evacuation chopper waits at `evacMetres`; each zone is `zoneMetres` long. */
+export const CAMPAIGN = { evacMetres: 5000, zoneMetres: 1000 };
+
+/**
+ * The boss that blocks the road near the end of every zone: when it rises (metres into the zone),
+ * its box, its hit points (base plus per zone), how often it hurls wreckage, and its names.
+ */
+export const BOSS = {
+  at: 640,
+  w: 128,
+  h: 196,
+  hp: 30,
+  hpPerZone: 10,
+  throwEvery: 1.9,
+  throwSpeed: 430,
+  supplyEvery: 2.6,
+  pressure: 0.9,
+  names: ['The Butcher', 'Big Mother', 'The Plough', 'Dockmaster Rot', 'The Last Tank'],
+};
+
+/** Survivors waiting to be rescued: how many can follow, how often each one fires, and their shirts. */
+export const SURVIVOR = { maxConvoy: 3, fireEvery: 2.2, from: 150, colors: ['#d9a13a', '#3aa38f', '#b24a8c', '#7a8f3a'] };
 
 /** The city zones the run passes through, each its own palette; they cycle after the last. */
 export const ZONES = [
@@ -50,6 +73,7 @@ export const ZONES = [
   { name: 'Downtown Ruins', skyTop: '#1a0b10', skyBottom: '#a4262c', sun: '#ff9b6a', far: '#3a1218', near: '#1d0a0e', ground: '#231818', line: '#d06b4a', haze: 'rgba(255, 80, 60, 0.2)' },
   { name: 'Dead Highway', skyTop: '#0b0a24', skyBottom: '#5b2a6b', sun: '#e8b4ff', far: '#25163d', near: '#140c24', ground: '#1b1824', line: '#e3c35a', haze: 'rgba(170, 110, 255, 0.16)' },
   { name: 'Toxic Docks', skyTop: '#071612', skyBottom: '#3f7a3a', sun: '#d8ff8a', far: '#15302a', near: '#0b1b17', ground: '#16201c', line: '#9fdc5a', haze: 'rgba(150, 255, 90, 0.14)' },
+  { name: 'Evac Airfield', skyTop: '#0a1424', skyBottom: '#c76b3a', sun: '#ffe2a0', far: '#24263a', near: '#13141f', ground: '#1d1d24', line: '#f0f0f0', haze: 'rgba(255, 190, 120, 0.14)' },
 ];
 
 /** Shared colours of the interface and the survivor. */

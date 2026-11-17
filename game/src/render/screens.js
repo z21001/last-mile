@@ -1,6 +1,7 @@
 // The full screens over the street: the title, the pause card, the safe house where a perk is
 // chosen, and the screen when the horde catches the survivor.
-import { COLORS, VIEW } from '../config.js';
+import { BOSS, CAMPAIGN, COLORS, VIEW, ZONES } from '../config.js';
+import { drawChopper } from './sprites.js';
 import { perkById } from '../perks.js';
 import { metresRun } from '../world.js';
 import { label, panel } from './hud.js';
@@ -20,7 +21,7 @@ export function drawTitle(ctx, time, best) {
   ctx.scale(pulse, pulse);
   label(ctx, 'LAST MILE', 0, 0, 104, COLORS.ui, 'center');
   ctx.restore();
-  label(ctx, 'The city fell. The horde is at your back. Run.', VIEW.width / 2, 230, 26, COLORS.uiText, 'center');
+  label(ctx, 'The city fell. The last chopper leaves from the airfield, 5 km away. Run.', VIEW.width / 2, 230, 24, COLORS.uiText, 'center');
   panel(ctx, VIEW.width / 2 - 330, 272, 660, 214, 14);
   const rows = [
     ['SPACE / W', 'Jump - press again in mid-air to double jump'],
@@ -35,7 +36,7 @@ export function drawTitle(ctx, time, best) {
   });
   if (Math.floor(time * 2) % 2 === 0) label(ctx, 'CLICK OR PRESS ENTER TO RUN', VIEW.width / 2, 530, 30, COLORS.ui, 'center');
   if (best > 0) label(ctx, `Best run: ${best}`, VIEW.width / 2, 572, 20, COLORS.uiDim, 'center');
-  label(ctx, 'Every 1000 m a safe house - pick a perk. Food pushes the horde back.', VIEW.width / 2, 612, 18, COLORS.uiText, 'center', 'normal');
+  label(ctx, '5 zones  ·  a boss at the end of each  ·  rescue survivors to fight beside you  ·  safe-house perks', VIEW.width / 2, 612, 18, COLORS.uiText, 'center', 'normal');
 }
 
 /** The pause card. */
@@ -103,6 +104,9 @@ export function drawSafehouse(ctx, state, time, hovered) {
     ctx.restore();
   });
   label(ctx, 'Press 1, 2 or 3 - or click a card', VIEW.width / 2, 570, 22, COLORS.uiText, 'center');
+  const next = state.zone % ZONES.length;
+  const bossAt = state.zone * CAMPAIGN.zoneMetres + BOSS.at;
+  label(ctx, `NEXT  ·  ZONE ${next + 1}: ${ZONES[next].name.toUpperCase()}  ·  ${BOSS.names[next % BOSS.names.length].toUpperCase()} waits at ${bossAt} m`, VIEW.width / 2, 622, 20, COLORS.danger, 'center');
 }
 
 /** Centre-wrapped text inside `width`. */
@@ -133,11 +137,11 @@ export function drawCaught(ctx, state, time, best, newBest) {
   label(ctx, 'THE HORDE CAUGHT YOU', VIEW.width / 2, 140, 66, COLORS.danger, 'center');
   panel(ctx, VIEW.width / 2 - 300, 200, 600, 280, 16);
   const rows = [
-    ['Distance', `${metresRun(state)} m`],
+    ['Distance', `${metresRun(state)} of ${CAMPAIGN.evacMetres} m`],
     ['Zombies put down', `${state.kills}`],
-    ['Head stomps', `${state.stomps}`],
+    ['Bosses defeated', `${state.bossesDown}`],
+    ['Survivors rescued', `${state.rescued}`],
     ['Best combo', `x${state.bestCombo}`],
-    ['Safe houses reached', `${state.safehouses}`],
   ];
   rows.forEach(([name, value], index) => {
     label(ctx, name, VIEW.width / 2 - 260, 236 + index * 38, 22, COLORS.uiText, 'left', 'normal');
@@ -147,4 +151,29 @@ export function drawCaught(ctx, state, time, best, newBest) {
   if (newBest) label(ctx, 'NEW BEST RUN!', VIEW.width / 2, 520, 32, COLORS.good, 'center');
   else label(ctx, `Best ${best}`, VIEW.width / 2, 520, 24, COLORS.uiDim, 'center');
   if (Math.floor(time * 2) % 2 === 0) label(ctx, 'PRESS R OR CLICK TO RUN AGAIN', VIEW.width / 2, 590, 28, COLORS.uiText, 'center');
+}
+
+/** The win: the survivor and their convoy reach the chopper. The run's numbers, then endless mode or a new run. */
+export function drawEvacuated(ctx, state, time, best, newBest) {
+  const fade = Math.min(1, state.evacTime * 1.5);
+  veil(ctx, 0.5 * fade);
+  drawChopper(ctx, VIEW.width / 2 + 330, 150 + Math.sin(time * 2) * 6, time, 0.9);
+  label(ctx, 'EVACUATED!', VIEW.width / 2 - 120, 110, 76, COLORS.good, 'center');
+  label(ctx, 'You made the last chopper out of the city.', VIEW.width / 2 - 120, 168, 24, COLORS.uiText, 'center');
+  panel(ctx, VIEW.width / 2 - 330, 200, 600, 300, 16);
+  const rows = [
+    ['Distance', `${metresRun(state)} m`],
+    ['Zombies put down', `${state.kills}`],
+    ['Bosses defeated', `${state.bossesDown} / 5`],
+    ['Survivors rescued', `${state.rescued}  (${state.convoy.length} aboard with you)`],
+    ['Evacuation bonus', `+${state.evacBonus ?? 0}`],
+  ];
+  rows.forEach(([name, value], index) => {
+    label(ctx, name, VIEW.width / 2 - 300, 236 + index * 38, 22, COLORS.uiText, 'left', 'normal');
+    label(ctx, value, VIEW.width / 2 + 240, 236 + index * 38, 22, COLORS.ui, 'right');
+  });
+  label(ctx, `SCORE ${Math.floor(state.score)}`, VIEW.width / 2 - 30, 452, 38, COLORS.ui, 'center');
+  if (newBest) label(ctx, 'NEW BEST RUN!', VIEW.width / 2 - 30, 532, 30, COLORS.good, 'center');
+  else label(ctx, `Best ${best}`, VIEW.width / 2 - 30, 532, 24, COLORS.uiDim, 'center');
+  label(ctx, 'ENTER  keep running in endless mode     R  start a new run', VIEW.width / 2 - 30, 594, 24, COLORS.uiText, 'center');
 }

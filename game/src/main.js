@@ -56,8 +56,9 @@ if (shot) {
     ctx.save();
     beginFrame();
     const score = Math.floor(world.state.score);
-    const best = Math.max(loadBest(), screen === 'caught' ? score : 0);
-    drawFrame(ctx, world.state, screen, { best, newBest: screen === 'caught' && score >= best, clock: 0.25, hovered: 1 });
+    const ended = screen === 'caught' || screen === 'evacuated';
+    const best = Math.max(loadBest(), ended ? score : 0);
+    drawFrame(ctx, world.state, screen, { best, newBest: ended && score >= best, clock: 0.25, hovered: 1 });
     ctx.restore();
   };
   render();

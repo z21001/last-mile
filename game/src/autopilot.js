@@ -5,6 +5,7 @@
 import { RUNNER, STREET } from './config.js';
 import { WRECK_BARRIER } from './obstacles.js';
 import { ZOMBIE_BRUTE, ZOMBIE_CRAWLER } from './zombies.js';
+import { THROW_HIGH, THROW_LOW } from './boss.js';
 
 /**
  * Controls for this step. `skill` in [0, 1]: at 1 it reads far ahead and shoots everything; lower
@@ -28,6 +29,14 @@ export function autopilot(state, skill = 1) {
     }
   }
 
+  // The boss's thrown wreckage: jump the barrels, slide under the doors.
+  for (const piece of state.thrown) {
+    const gap = piece.x - piece.r - front;
+    if (gap < -20 || gap > lookahead * 0.9) continue;
+    if (piece.kind === THROW_LOW && runner.grounded && gap < lookahead * 0.6) controls.jump = true;
+    if (piece.kind === THROW_HIGH && runner.grounded && gap < lookahead * 0.7) controls.slide = true;
+  }
+
   const ahead = state.zombies.filter((zombie) => zombie.alive && zombie.x + zombie.w > runner.x && zombie.x < runner.x + 760).sort((a, b) => a.x - b.x);
   const target = ahead[0];
   if (target) {
@@ -37,6 +46,11 @@ export function autopilot(state, skill = 1) {
     const gap = target.x - front;
     const mustJump = target.kind === ZOMBIE_CRAWLER || state.ammo === 0 || (target.hp > 1 && target.kind !== ZOMBIE_BRUTE);
     if (runner.grounded && mustJump && gap > 0 && gap < lookahead * 0.8) controls.jump = true;
+  } else if (state.boss && state.boss.dying === 0) {
+    const boss = state.boss;
+    controls.aim = { x: boss.x + boss.w * 0.4, y: boss.y - boss.h * 0.6 };
+    controls.shoot = state.ammo > 0 && (skill >= 0.5 || Math.floor(state.time * 2) % 3 === 0);
+    if (skill >= 0.5 && state.molotovs > 0 && boss.hp > 6) controls.molotov = true;
   } else {
     controls.aim = { x: runner.x + 600, y: STREET.groundY - 80 + Math.sin(state.time) * 40 };
   }

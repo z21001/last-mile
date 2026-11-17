@@ -1,7 +1,8 @@
 // The street generator: as the run scrolls, it lays down the next stretch of the city, a pattern
 // of wrecks, zombies and supplies chosen for how far the survivor has come. Patterns grow denser
 // and nastier with distance, and each is spaced so that a quick player can always read it in time.
-import { STREET, VIEW } from './config.js';
+import { STREET, SURVIVOR, VIEW } from './config.js';
+import { spawnSurvivor } from './survivors.js';
 import { WRECK_BARRIER, WRECK_BUS, WRECK_CAR, WRECK_DEBRIS, spawnWreck } from './obstacles.js';
 import { PICKUP_AMMO, PICKUP_FOOD, PICKUP_MOLOTOV, PICKUP_SCRAP, spawnPickup } from './pickups.js';
 import { ZOMBIE_BLOATER, ZOMBIE_BRUTE, ZOMBIE_CRAWLER, ZOMBIE_SPRINTER, ZOMBIE_WALKER, spawnZombie } from './zombies.js';
@@ -30,6 +31,8 @@ const PATTERNS = [
   { name: 'car then barrier', from: 700, weight: 1.5, build: (out, x, rng) => { out.wrecks.push(spawnWreck(WRECK_CAR, x, rng.int(0, 3))); out.wrecks.push(spawnWreck(WRECK_BARRIER, x + 420)); return 520; } },
   { name: 'bloater', from: 1100, weight: 1.5, build: (out, x, rng) => { out.zombies.push(spawnZombie(ZOMBIE_BLOATER, x)); for (let i = 0; i < rng.int(1, 3); i += 1) out.zombies.push(spawnZombie(ZOMBIE_WALKER, x + 70 + i * 50)); return 260; } },
   { name: 'brute', from: 1700, weight: 1.2, build: (out, x) => { out.zombies.push(spawnZombie(ZOMBIE_BRUTE, x)); out.pickups.push(spawnPickup(PICKUP_AMMO, x - 160, GROUND - 40)); return 140; } },
+  { name: 'survivor waving', from: SURVIVOR.from, weight: 1.1, build: (out, x, rng) => { out.survivors.push(spawnSurvivor(x, GROUND, rng.int(0, 3))); scrapArc(out, x - 160, 3, 60); return 80; } },
+  { name: 'survivor on a roof', from: 350, weight: 0.9, build: (out, x, rng) => { out.wrecks.push(spawnWreck(WRECK_CAR, x, rng.int(0, 3))); out.survivors.push(spawnSurvivor(x + 58, GROUND - 66, rng.int(0, 3))); out.zombies.push(spawnZombie(ZOMBIE_WALKER, x + 260)); return 300; } },
   { name: 'horde wall', from: 2200, weight: 1, build: (out, x, rng) => { const kinds = [ZOMBIE_WALKER, ZOMBIE_CRAWLER, ZOMBIE_WALKER, ZOMBIE_SPRINTER]; for (let i = 0; i < 5; i += 1) out.zombies.push(spawnZombie(rng.pick(kinds), x + i * 70)); out.pickups.push(spawnPickup(PICKUP_MOLOTOV, x - 220, GROUND - 120)); return 400; } },
 ];
 
@@ -53,7 +56,7 @@ function choosePattern(rng, metres) {
 
 /**
  * Advance the generator by the `scrolled` pixels the street moved this step; when the next stretch
- * is due, lay it just off the right edge into `out` ({ wrecks, zombies, pickups }).
+ * is due, lay it just off the right edge into `out` ({ wrecks, zombies, pickups, survivors }).
  */
 export function extendStreet(street, out, scrolled, metres, speed) {
   street.untilNext -= scrolled;

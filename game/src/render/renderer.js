@@ -1,17 +1,21 @@
 // Draws one frame: the city backdrop, the street and everything on it, effects, the HUD, and the
 // screen the game is on. Screen shake and the red hurt flash are applied here.
-import { VIEW } from '../config.js';
-import { currentZone } from '../world.js';
+import { CAMPAIGN, VIEW } from '../config.js';
+import { currentZone, metresRun } from '../world.js';
 import { drawAsh, drawBackground } from './background.js';
 import { drawHud, label } from './hud.js';
-import { drawCaught, drawPause, drawSafehouse, drawTitle } from './screens.js';
-import { drawBullets, drawFires, drawHorde, drawHound, drawMolotovs, drawPickup, drawRunner, drawWreck, drawZombie } from './sprites.js';
+import { drawCaught, drawEvacuated, drawPause, drawSafehouse, drawTitle } from './screens.js';
+import {
+  drawBoss, drawBullets, drawChopper, drawConvoy, drawFires, drawHorde, drawHound, drawMolotovs, drawPickup,
+  drawRunner, drawSurvivor, drawThrown, drawWreck, drawZombie,
+} from './sprites.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_RUN = 'run';
 export const SCREEN_PAUSE = 'pause';
 export const SCREEN_SAFEHOUSE = 'safehouse';
 export const SCREEN_CAUGHT = 'caught';
+export const SCREEN_EVACUATED = 'evacuated';
 
 /** Particles and floating numbers. */
 function drawEffects(ctx, fx) {
@@ -30,11 +34,21 @@ function drawEffects(ctx, fx) {
 /** The street and everything on it. */
 function drawStreet(ctx, state, time) {
   drawBackground(ctx, state.scrolled, currentZone(state), time);
+  // The evac chopper waits over the airfield once the last zone is reached.
+  const metres = metresRun(state);
+  if (!state.endless && metres > CAMPAIGN.evacMetres - CAMPAIGN.zoneMetres) {
+    const near = (metres - (CAMPAIGN.evacMetres - CAMPAIGN.zoneMetres)) / CAMPAIGN.zoneMetres;
+    drawChopper(ctx, VIEW.width + 120 - near * 420, 150 + Math.sin(time) * 8, time, 0.6 + near * 0.5);
+  }
   drawFires(ctx, state.fires, time);
   for (const wreck of state.wrecks) drawWreck(ctx, wreck);
   for (const pickup of state.pickups) drawPickup(ctx, pickup, time);
+  for (const survivor of state.survivors) drawSurvivor(ctx, survivor, time);
+  if (state.boss) drawBoss(ctx, state.boss, time);
   for (const zombie of state.zombies) if (zombie.alive) drawZombie(ctx, zombie, time);
+  for (const piece of state.thrown) drawThrown(ctx, piece);
   if (state.stats.hound > 0) drawHound(ctx, state.runner, state.hound, time);
+  drawConvoy(ctx, state.convoy, state.runner);
   drawRunner(ctx, state.runner, state.aim, state.muzzle, time);
   drawHorde(ctx, state.horde, time);
   drawBullets(ctx, state.bullets);
@@ -68,4 +82,5 @@ export function drawFrame(ctx, state, screen, view) {
   if (screen === SCREEN_PAUSE) drawPause(ctx);
   if (screen === SCREEN_SAFEHOUSE) drawSafehouse(ctx, state, view.clock, view.hovered);
   if (screen === SCREEN_CAUGHT) drawCaught(ctx, state, view.clock, view.best, view.newBest);
+  if (screen === SCREEN_EVACUATED) drawEvacuated(ctx, state, view.clock, view.best, view.newBest);
 }

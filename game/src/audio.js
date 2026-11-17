@@ -2,8 +2,9 @@
 // pickups, molotov blasts, the safe-house chime, the end of a run, and a driving beat that speeds
 // up with the run. It starts on the first key or click, as browsers require.
 import {
-  EVENT_BITE, EVENT_BLAST, EVENT_CAUGHT, EVENT_EMPTY, EVENT_HIT, EVENT_JUMP, EVENT_KILL, EVENT_LAND,
-  EVENT_MOLOTOV, EVENT_PICKUP, EVENT_SAFEHOUSE, EVENT_SHOT, EVENT_SLIDE, EVENT_STOMP,
+  EVENT_BITE, EVENT_BLAST, EVENT_BOSS, EVENT_BOSS_DOWN, EVENT_CAUGHT, EVENT_EMPTY, EVENT_EVAC, EVENT_HIT, EVENT_JUMP,
+  EVENT_KILL, EVENT_LAND, EVENT_MOLOTOV, EVENT_PICKUP, EVENT_RESCUE, EVENT_SAFEHOUSE, EVENT_SHOT, EVENT_SLIDE,
+  EVENT_STOMP, EVENT_THROW,
 } from './world.js';
 
 /** Make the sound system; every method is safe to call before audio is allowed or when it is unavailable. */
@@ -118,6 +119,19 @@ export function createAudio() {
         tone('square', 500, 300, 0.06, 0.1);
         tone('square', 600, 350, 0.06, 0.1, 0.07);
       }
+      if (events & EVENT_BOSS) {
+        tone('sawtooth', 90, 40, 1.1, 0.3);
+        tone('sawtooth', 135, 55, 1.0, 0.18, 0.05);
+        hiss(0.8, 0.25, 400);
+      }
+      if (events & EVENT_THROW) tone('sawtooth', 200, 80, 0.25, 0.12);
+      if (events & EVENT_BOSS_DOWN) {
+        hiss(1.2, 0.5, 500);
+        tone('sine', 70, 25, 1.2, 0.4);
+        [392, 523, 659, 784].forEach((note, index) => tone('square', note, note, 0.18, 0.08, 0.4 + index * 0.09));
+      }
+      if (events & EVENT_RESCUE) [659, 880, 1175].forEach((note, index) => tone('triangle', note, note, 0.15, 0.13, index * 0.07));
+      if (events & EVENT_EVAC) [523, 659, 784, 1046, 1318].forEach((note, index) => tone('triangle', note, note, 0.45, 0.16, index * 0.14));
       if (events & EVENT_SAFEHOUSE) [523, 659, 784, 1046].forEach((note, index) => tone('triangle', note, note, 0.3, 0.15, index * 0.1));
       if (events & EVENT_CAUGHT) {
         [392, 330, 262, 196].forEach((note, index) => tone('sawtooth', note, note * 0.97, 0.45, 0.13, index * 0.22));

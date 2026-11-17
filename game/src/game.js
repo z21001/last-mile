@@ -2,10 +2,10 @@
 // player's keys and mouse become controls for the world, the best score, and sound.
 import { PACE, STEP } from './config.js';
 import { autopilot } from './autopilot.js';
-import { SCREEN_CAUGHT, SCREEN_PAUSE, SCREEN_RUN, SCREEN_SAFEHOUSE, SCREEN_TITLE, drawFrame } from './render/renderer.js';
+import { SCREEN_CAUGHT, SCREEN_EVACUATED, SCREEN_PAUSE, SCREEN_RUN, SCREEN_SAFEHOUSE, SCREEN_TITLE, drawFrame } from './render/renderer.js';
 import { perkCardRects } from './render/screens.js';
 import { loadBest, saveBest } from './storage.js';
-import { EVENT_CAUGHT, EVENT_SAFEHOUSE, createWorld } from './world.js';
+import { EVENT_CAUGHT, EVENT_EVAC, EVENT_SAFEHOUSE, createWorld } from './world.js';
 
 const JUMP_KEYS = ['Space', 'KeyW', 'ArrowUp'];
 const SLIDE_KEYS = ['KeyS', 'ArrowDown'];
@@ -82,6 +82,24 @@ export function createGame(ctx, input, audio, status) {
     if (game.screen === SCREEN_CAUGHT && game.world.state.caughtTime > 0.8) {
       if (input.wasPressed('KeyR', 'Enter') || clicked) startRun();
     }
+    if (game.screen === SCREEN_EVACUATED && game.world.state.evacTime > 0.8) {
+      if (input.wasPressed('KeyR')) startRun();
+      else if ((input.wasPressed('Enter') || clicked) && game.world.continueEndless()) {
+        game.screen = SCREEN_RUN;
+        announce('Endless mode: run as far as you can.');
+      }
+    }
+  };
+
+  /** Keep the best score when a run ends, by capture or by evacuation. */
+  const recordScore = () => {
+    const score = Math.floor(game.world.state.score);
+    if (score > game.best) {
+      game.best = score;
+      game.newBest = true;
+      saveBest(score);
+    }
+    return score;
   };
 
   /** One fixed step of the simulation for the current screen. */
@@ -92,7 +110,7 @@ export function createGame(ctx, input, audio, status) {
     if (game.screen === SCREEN_TITLE) {
       game.world.step(STEP, autopilot(state, 1));
       if (state.phase !== 'run') game.world.reset((state.seed + 1) >>> 0);
-    } else if (game.screen === SCREEN_RUN || game.screen === SCREEN_CAUGHT || game.screen === SCREEN_SAFEHOUSE) {
+    } else if (game.screen !== SCREEN_PAUSE) {
       const events = game.world.step(STEP, game.screen === SCREEN_RUN ? playerControls() : {});
       audio.play(events);
       if (events & EVENT_SAFEHOUSE) {
@@ -101,13 +119,11 @@ export function createGame(ctx, input, audio, status) {
       }
       if (events & EVENT_CAUGHT) {
         game.screen = SCREEN_CAUGHT;
-        const score = Math.floor(game.world.state.score);
-        if (score > game.best) {
-          game.best = score;
-          game.newBest = true;
-          saveBest(score);
-        }
-        announce(`The horde caught you. Score ${score}. Press R to run again.`);
+        announce(`The horde caught you. Score ${recordScore()}. Press R to run again.`);
+      }
+      if (events & EVENT_EVAC) {
+        game.screen = SCREEN_EVACUATED;
+        announce(`Evacuated! Score ${recordScore()}. Enter for endless mode, R for a new run.`);
       }
     }
     audio.music(game.screen === SCREEN_RUN, (game.world.state.speed - PACE.start) / (PACE.max - PACE.start));

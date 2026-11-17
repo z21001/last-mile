@@ -1,6 +1,7 @@
 // Everything that moves on the street, drawn from shapes: the survivor and their dog, each kind of
 // zombie, the wrecks, the supplies, bullets, molotovs and fire. No image files: every sprite is code.
-import { COLORS, RUNNER, STREET } from '../config.js';
+import { COLORS, RUNNER, STREET, SURVIVOR } from '../config.js';
+import { convoyX } from '../survivors.js';
 import { runnerHeight } from '../runner.js';
 import { WRECK_BARRIER, WRECK_BUS, WRECK_CAR } from '../obstacles.js';
 import { PICKUP_AMMO, PICKUP_FOOD, PICKUP_MOLOTOV } from '../pickups.js';
@@ -378,6 +379,218 @@ export function drawFires(ctx, fires, time) {
       ctx.fill();
     }
   }
+}
+
+/** A zone boss: a hulking, bloated undead in torn work clothes, its weak glowing heart showing. */
+export function drawBoss(ctx, boss, time) {
+  const x = boss.x;
+  const feet = boss.y;
+  const w = boss.w;
+  const h = boss.h;
+  const sway = Math.sin(boss.age * 2.2);
+  const windup = boss.windup > 0 ? 1 - boss.windup / 0.45 : 0;
+  const skin = boss.hurt > 0 ? '#ffffff' : '#5f7a4e';
+  ctx.save();
+  if (boss.dying > 0) {
+    ctx.globalAlpha = Math.max(0, boss.dying / 1.4);
+    ctx.translate(0, (1 - boss.dying / 1.4) * 60);
+  }
+  // Red glow behind it.
+  const aura = ctx.createRadialGradient(x + w / 2, feet - h / 2, 20, x + w / 2, feet - h / 2, h);
+  aura.addColorStop(0, 'rgba(255, 60, 40, 0.35)');
+  aura.addColorStop(1, 'rgba(255, 60, 40, 0)');
+  ctx.fillStyle = aura;
+  ctx.fillRect(x - h / 2, feet - h * 1.5, w + h, h * 1.6);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, STREET.groundY + 6, w * 0.7, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Legs, stomping.
+  limb(ctx, x + w * 0.35, feet - h * 0.4, x + w * 0.3 + sway * 12, feet - 4, 26, '#2a2420');
+  limb(ctx, x + w * 0.65, feet - h * 0.4, x + w * 0.7 - sway * 12, feet - 4, 26, '#211c18');
+  // Body: a huge torso with overalls.
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, feet - h * 0.6, w * 0.58, h * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3a4a6a';
+  ctx.fillRect(x + w * 0.12, feet - h * 0.55, w * 0.76, h * 0.2);
+  // The glowing heart: its weak spot.
+  const pulse = 0.6 + 0.4 * Math.sin(time * 6);
+  ctx.fillStyle = `rgba(255, 90, 60, ${pulse})`;
+  ctx.beginPath();
+  ctx.arc(x + w * 0.42, feet - h * 0.66, 12, 0, Math.PI * 2);
+  ctx.fill();
+  // Head, small on the huge body, with a mouth full of teeth.
+  const hx = x + w * 0.4 + sway * 3;
+  const hy = feet - h * 0.92;
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(hx, hy, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffdf3a';
+  ctx.fillRect(hx - 14, hy - 8, 7, 6);
+  ctx.fillRect(hx + 2, hy - 8, 7, 6);
+  ctx.fillStyle = '#2a0606';
+  ctx.fillRect(hx - 12, hy + 6, 22, 9);
+  ctx.fillStyle = '#e8e0c8';
+  for (let tooth = 0; tooth < 5; tooth += 1) ctx.fillRect(hx - 11 + tooth * 4.5, hy + 6, 2, 4);
+  // Arms: one raised to throw while it winds up.
+  const shoulderY = feet - h * 0.78;
+  const throwArm = windup > 0 ? -Math.PI * 0.7 * windup : 0.3 + sway * 0.2;
+  limb(ctx, x + w * 0.2, shoulderY, x + w * 0.2 - 60 * Math.cos(throwArm), shoulderY - 60 * Math.sin(-throwArm), 22, skin);
+  limb(ctx, x + w * 0.75, shoulderY, x + w * 0.6 - 50, shoulderY + 60, 22, skin);
+  if (boss.burning > 0) {
+    ctx.fillStyle = 'rgba(255, 140, 40, 0.4)';
+    ctx.fillRect(x, feet - h, w, h);
+  }
+  ctx.restore();
+}
+
+/** Wreckage the boss threw: a rolling barrel or a spinning car door. */
+export function drawThrown(ctx, piece) {
+  ctx.save();
+  ctx.translate(piece.x, piece.y);
+  ctx.rotate(piece.spin);
+  if (piece.kind === 'barrel') {
+    ctx.fillStyle = '#b8462a';
+    ctx.beginPath();
+    ctx.arc(0, 0, piece.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3a1a10';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-piece.r, 0);
+    ctx.lineTo(piece.r, 0);
+    ctx.moveTo(0, -piece.r);
+    ctx.lineTo(0, piece.r);
+    ctx.stroke();
+    ctx.fillStyle = '#ffdf3a';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', 0, 5);
+  } else {
+    ctx.fillStyle = '#5a6a7a';
+    ctx.fillRect(-piece.r, -piece.r * 0.6, piece.r * 2, piece.r * 1.2);
+    ctx.fillStyle = 'rgba(160, 200, 230, 0.6)';
+    ctx.fillRect(-piece.r + 6, -piece.r * 0.6 + 4, piece.r * 1.1, piece.r * 0.5);
+  }
+  ctx.restore();
+}
+
+/** A person to rescue, waving both arms; a green marker floats above them. */
+export function drawSurvivor(ctx, survivor, time) {
+  const x = survivor.x;
+  const feet = survivor.y;
+  const shirt = SURVIVOR.colors[survivor.look];
+  const waveArm = Math.sin(survivor.wave) * 0.6;
+  const glow = ctx.createRadialGradient(x + 17, feet - 50, 4, x + 17, feet - 50, 70);
+  glow.addColorStop(0, 'rgba(139, 224, 127, 0.35)');
+  glow.addColorStop(1, 'rgba(139, 224, 127, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(x - 60, feet - 130, 160, 140);
+  limb(ctx, x + 12, feet - 40, x + 10, feet - 2, 8, '#2a2a33');
+  limb(ctx, x + 22, feet - 40, x + 24, feet - 2, 8, '#2a2a33');
+  ctx.fillStyle = shirt;
+  ctx.fillRect(x + 4, feet - 74, 26, 36);
+  limb(ctx, x + 6, feet - 70, x - 10, feet - 100 + waveArm * 14, 6, shirt);
+  limb(ctx, x + 28, feet - 70, x + 44, feet - 100 - waveArm * 14, 6, shirt);
+  ctx.fillStyle = '#d8a882';
+  ctx.beginPath();
+  ctx.arc(x + 17, feet - 84, 10, 0, Math.PI * 2);
+  ctx.fill();
+  const bob = Math.sin(time * 5) * 4;
+  ctx.fillStyle = '#8be07f';
+  ctx.beginPath();
+  ctx.moveTo(x + 17, feet - 104 + bob);
+  ctx.lineTo(x + 7, feet - 120 + bob);
+  ctx.lineTo(x + 27, feet - 120 + bob);
+  ctx.fill();
+  ctx.font = 'bold 14px "Trebuchet MS", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.strokeText('HELP!', x + 17, feet - 128 + bob);
+  ctx.fillText('HELP!', x + 17, feet - 128 + bob);
+  ctx.textAlign = 'left';
+}
+
+/** The rescued survivors running behind the runner, each with a pistol. */
+export function drawConvoy(ctx, convoy, runner) {
+  for (const follower of convoy) {
+    const x = convoyX(runner.x, follower.slot);
+    const feet = STREET.groundY - follower.lift;
+    const shirt = SURVIVOR.colors[follower.look];
+    const swing = Math.sin(runner.stride + follower.slot * 1.3);
+    limb(ctx, x + 14, feet - 38, x + 14 + swing * 12, feet - 2, 8, '#2a2a33');
+    limb(ctx, x + 18, feet - 38, x + 18 - swing * 12, feet - 2, 8, '#23232b');
+    ctx.fillStyle = shirt;
+    ctx.beginPath();
+    ctx.roundRect(x + 4, feet - 74, 26, 38, 5);
+    ctx.fill();
+    ctx.fillStyle = '#d8a882';
+    ctx.beginPath();
+    ctx.arc(x + 18, feet - 84, 10, 0, Math.PI * 2);
+    ctx.fill();
+    limb(ctx, x + 22, feet - 64, x + 42, feet - 60, 6, shirt);
+    ctx.fillStyle = '#1b1b1f';
+    ctx.fillRect(x + 40, feet - 64, 12, 5);
+    if (follower.muzzle > 0) {
+      ctx.fillStyle = COLORS.muzzle;
+      ctx.beginPath();
+      ctx.arc(x + 56, feet - 62, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** The evacuation chopper, hovering over the airfield with its searchlight sweeping. */
+export function drawChopper(ctx, x, y, time, scale = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const beam = ctx.createLinearGradient(0, 0, 0, 420);
+  beam.addColorStop(0, 'rgba(255, 245, 200, 0.4)');
+  beam.addColorStop(1, 'rgba(255, 245, 200, 0)');
+  ctx.fillStyle = beam;
+  const sweep = Math.sin(time * 0.8) * 80;
+  ctx.beginPath();
+  ctx.moveTo(-10, 20);
+  ctx.lineTo(10, 20);
+  ctx.lineTo(90 + sweep, 420);
+  ctx.lineTo(-90 + sweep, 420);
+  ctx.fill();
+  ctx.fillStyle = '#1c2a22';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 70, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(40, -8, 110, 12);
+  ctx.fillRect(140, -26, 10, 30);
+  ctx.fillStyle = 'rgba(150, 210, 240, 0.7)';
+  ctx.beginPath();
+  ctx.ellipse(-36, -4, 26, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d8d0b0';
+  ctx.fillRect(-30, 6, 60, 6);
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-50, 34);
+  ctx.lineTo(50, 34);
+  ctx.moveTo(-30, 26);
+  ctx.lineTo(-34, 34);
+  ctx.moveTo(30, 26);
+  ctx.lineTo(34, 34);
+  ctx.stroke();
+  const blade = Math.abs(Math.sin(time * 40)) * 120 + 20;
+  ctx.fillStyle = 'rgba(20, 20, 20, 0.7)';
+  ctx.fillRect(-blade, -36, blade * 2, 5);
+  ctx.fillRect(-4, -36, 8, 10);
+  ctx.fillStyle = Math.floor(time * 3) % 2 === 0 ? '#ff3b2a' : '#4a1010';
+  ctx.beginPath();
+  ctx.arc(150, -26, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** The horde itself, a churning mass of the dead at the left edge that creeps on screen as it closes. */
