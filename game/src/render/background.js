@@ -89,8 +89,8 @@ function drawSkyline(ctx, scrolled, factor, slotWidth, minHeight, maxHeight, col
   }
 }
 
-/** Bent street lamps and dead traffic lights along the kerb. */
-function drawStreetFurniture(ctx, scrolled, zone) {
+/** Bent street lamps along the kerb; the ones that still work cast a cone of sodium light. */
+function drawStreetFurniture(ctx, scrolled, zone, time) {
   const spacing = 360;
   const offset = scrolled * 0.8;
   const first = Math.floor(offset / spacing) - 1;
@@ -104,8 +104,77 @@ function drawStreetFurniture(ctx, scrolled, zone) {
     ctx.fillStyle = zone.near;
     ctx.fillRect(-3, -190, 6, 190);
     ctx.fillRect(-3, -190, 46, 6);
+    const working = hash(slot, 78) > 0.35;
+    const flicker = hash(slot, 79) > 0.75 ? (Math.sin(time * 23 + slot) > 0.2 ? 1 : 0.15) : 1;
+    if (working) {
+      ctx.fillStyle = `rgba(255, 210, 120, ${flicker})`;
+      ctx.fillRect(30, -186, 16, 6);
+      ctx.globalCompositeOperation = 'lighter';
+      const cone = ctx.createLinearGradient(0, -184, 0, 14);
+      cone.addColorStop(0, `rgba(255, 190, 90, ${0.32 * flicker})`);
+      cone.addColorStop(1, 'rgba(255, 190, 90, 0)');
+      ctx.fillStyle = cone;
+      ctx.beginPath();
+      ctx.moveTo(30, -182);
+      ctx.lineTo(46, -182);
+      ctx.lineTo(110, 14);
+      ctx.lineTo(-34, 14);
+      ctx.closePath();
+      ctx.fill();
+      const bulb = ctx.createRadialGradient(38, -183, 0, 38, -183, 40);
+      bulb.addColorStop(0, `rgba(255, 220, 140, ${0.8 * flicker})`);
+      bulb.addColorStop(1, 'rgba(255, 220, 140, 0)');
+      ctx.fillStyle = bulb;
+      ctx.fillRect(-2, -223, 80, 80);
+    }
     ctx.restore();
   }
+}
+
+const SIGNS = ['MOTEL', '24H', 'PHARMACY', 'BAR', 'GUNS', 'DINER', 'HOTEL', 'OPEN'];
+const NEON = ['255, 60, 120', '60, 220, 255', '255, 200, 60', '140, 255, 120', '200, 100, 255'];
+
+/** Neon signs still buzzing on the near buildings, some flickering on their last power. */
+function drawNeonSigns(ctx, scrolled, time) {
+  const slotWidth = 170;
+  const offset = scrolled * 0.25;
+  const first = Math.floor(offset / slotWidth) - 1;
+  ctx.save();
+  for (let index = 0; index < Math.ceil(VIEW.width / slotWidth) + 3; index += 1) {
+    const slot = first + index;
+    if (hash(slot, 91) > 0.45) continue;
+    const x = slot * slotWidth - offset + 20;
+    const height = 160 + hash(slot, 23) * 220;
+    const y = STREET.groundY - height * (0.45 + hash(slot, 92) * 0.3);
+    const text = SIGNS[Math.floor(hash(slot, 93) * SIGNS.length)];
+    const color = NEON[Math.floor(hash(slot, 94) * NEON.length)];
+    const dying = hash(slot, 95) > 0.6;
+    const on = !dying || Math.sin(time * 9 + slot * 3) + Math.sin(time * 23 + slot) > -0.4;
+    ctx.font = 'bold 22px "Trebuchet MS", sans-serif';
+    const w = ctx.measureText(text).width + 18;
+    ctx.fillStyle = 'rgba(10, 6, 12, 0.85)';
+    ctx.fillRect(x, y - 16, w, 32);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    if (on) {
+      ctx.shadowColor = `rgb(${color})`;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = `rgb(${color})`;
+      ctx.fillText(text, x + 9, y + 1);
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = 'lighter';
+      const halo = ctx.createRadialGradient(x + w / 2, y, 0, x + w / 2, y, w);
+      halo.addColorStop(0, `rgba(${color}, 0.28)`);
+      halo.addColorStop(1, `rgba(${color}, 0)`);
+      ctx.fillStyle = halo;
+      ctx.fillRect(x - w / 2, y - w, w * 2, w * 2);
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      ctx.fillStyle = 'rgba(80, 70, 80, 0.8)';
+      ctx.fillText(text, x + 9, y + 1);
+    }
+  }
+  ctx.restore();
 }
 
 /** The road: kerb, asphalt, cracked lane markings scrolling at full speed. */
@@ -163,6 +232,7 @@ export function drawBackground(ctx, scrolled, zone, time) {
   ctx.fillStyle = zone.haze;
   ctx.fillRect(0, 0, VIEW.width, STREET.groundY);
   drawSkyline(ctx, scrolled, 0.25, 170, 160, 380, zone.near, 23, true, time);
-  drawStreetFurniture(ctx, scrolled, zone);
+  drawNeonSigns(ctx, scrolled, time);
+  drawStreetFurniture(ctx, scrolled, zone, time);
   drawRoad(ctx, scrolled, zone);
 }

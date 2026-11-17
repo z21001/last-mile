@@ -1,12 +1,14 @@
 // Draws one frame: the city backdrop, the street and everything on it, effects, the HUD, and the
 // screen the game is on. Screen shake and the red hurt flash are applied here.
-import { CAMPAIGN, VIEW } from '../config.js';
+import { CAMPAIGN, RUNNER, STREET, VIEW } from '../config.js';
+import { convoyX } from '../survivors.js';
 import { currentZone, metresRun } from '../world.js';
 import { drawAsh, drawBackground } from './background.js';
 import { drawHud, label } from './hud.js';
+import { drawLights, drawNight } from './lighting.js';
 import { drawCaught, drawEvacuated, drawPause, drawSafehouse, drawTitle } from './screens.js';
 import {
-  drawBoss, drawBullets, drawChopper, drawConvoy, drawFires, drawHorde, drawHound, drawMolotovs, drawPickup,
+  drawBoss, drawBullets, drawChopper, drawFires, drawFollower, drawHorde, drawHound, drawMolotovs, drawPickup,
   drawRunner, drawSurvivor, drawThrown, drawWreck, drawZombie,
 } from './sprites.js';
 
@@ -16,6 +18,19 @@ export const SCREEN_PAUSE = 'pause';
 export const SCREEN_SAFEHOUSE = 'safehouse';
 export const SCREEN_CAUGHT = 'caught';
 export const SCREEN_EVACUATED = 'evacuated';
+
+/** How much larger than their hit boxes the people and the dead are drawn, so they read in a small screenshot. */
+const SPRITE_SCALE = 1.3;
+
+/** Draw with `draw()` scaled by `s` around the point (x, y). */
+function atScale(ctx, x, y, s, draw) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.translate(-x, -y);
+  draw();
+  ctx.restore();
+}
 
 /** Particles and floating numbers. */
 function drawEffects(ctx, fx) {
@@ -43,17 +58,27 @@ function drawStreet(ctx, state, time) {
   drawFires(ctx, state.fires, time);
   for (const wreck of state.wrecks) drawWreck(ctx, wreck);
   for (const pickup of state.pickups) drawPickup(ctx, pickup, time);
-  for (const survivor of state.survivors) drawSurvivor(ctx, survivor, time);
-  if (state.boss) drawBoss(ctx, state.boss, time);
-  for (const zombie of state.zombies) if (zombie.alive) drawZombie(ctx, zombie, time);
+  const runner = state.runner;
+  for (const survivor of state.survivors) atScale(ctx, survivor.x + 17, survivor.y, SPRITE_SCALE, () => drawSurvivor(ctx, survivor, time));
+  if (state.boss) atScale(ctx, state.boss.x + state.boss.w / 2, state.boss.y, 1.15, () => drawBoss(ctx, state.boss, time));
+  for (const zombie of state.zombies) {
+    if (zombie.alive) atScale(ctx, zombie.x + zombie.w / 2, zombie.y, SPRITE_SCALE, () => drawZombie(ctx, zombie, time));
+  }
   for (const piece of state.thrown) drawThrown(ctx, piece);
-  if (state.stats.hound > 0) drawHound(ctx, state.runner, state.hound, time);
-  drawConvoy(ctx, state.convoy, state.runner);
-  drawRunner(ctx, state.runner, state.aim, state.muzzle, time);
+  if (state.stats.hound > 0) atScale(ctx, runner.x - 46, STREET.groundY, SPRITE_SCALE, () => drawHound(ctx, runner, state.hound, time));
+  for (const follower of state.convoy) {
+    atScale(ctx, convoyX(runner.x, follower.slot) + 17, STREET.groundY, SPRITE_SCALE, () => drawFollower(ctx, follower, runner));
+  }
+  // The runner is drawn larger around their feet; their aim is mapped into that scaled frame.
+  const cx = runner.x + RUNNER.width / 2;
+  const aim = { x: cx + (state.aim.x - cx) / SPRITE_SCALE, y: runner.y + (state.aim.y - runner.y) / SPRITE_SCALE };
+  atScale(ctx, cx, runner.y, SPRITE_SCALE, () => drawRunner(ctx, runner, aim, state.muzzle, time));
   drawHorde(ctx, state.horde, time);
   drawBullets(ctx, state.bullets);
   drawMolotovs(ctx, state.molotovsInAir, time);
   drawEffects(ctx, state.fx);
+  drawNight(ctx, state.horde);
+  drawLights(ctx, state, time);
   drawAsh(ctx, time);
   // A vignette that darkens the edges, deeper as the horde closes.
   const vignette = ctx.createRadialGradient(VIEW.width / 2, VIEW.height / 2, 260, VIEW.width / 2, VIEW.height / 2, 820);

@@ -1,7 +1,8 @@
 // The full screens over the street: the title, the pause card, the safe house where a perk is
 // chosen, and the screen when the horde catches the survivor.
 import { BOSS, CAMPAIGN, COLORS, VIEW, ZONES } from '../config.js';
-import { drawChopper } from './sprites.js';
+import { glow } from './lighting.js';
+import { drawChopper, drawRunner } from './sprites.js';
 import { perkById } from '../perks.js';
 import { metresRun } from '../world.js';
 import { label, panel } from './hud.js';
@@ -12,31 +13,85 @@ function veil(ctx, alpha) {
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
 }
 
-/** The title: the name, a line of story, the controls, and the prompt to run. */
+/** The title's key art: the survivor sprinting out of the dark, the horde's eyes behind, the chopper's light ahead. */
+function drawKeyArt(ctx, time) {
+  drawChopper(ctx, 1060, 120 + Math.sin(time * 1.5) * 6, time, 0.75);
+  // The horde: towering silhouettes, eyes burning.
+  for (let index = 0; index < 9; index += 1) {
+    const depth = index % 3;
+    const x = 40 + index * 34 + Math.sin(time * 2 + index) * 6;
+    const height = 230 + ((index * 53) % 70) - depth * 30;
+    const feet = 640 + depth * 10;
+    ctx.fillStyle = ['#140c10', '#1c1216', '#0c0809'][depth];
+    ctx.beginPath();
+    ctx.roundRect(x - 26, feet - height, 52, height, 18);
+    ctx.fill();
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 10, feet - height + 50);
+    ctx.lineTo(x + 80 + Math.sin(time * 3 + index) * 14, feet - height + 40);
+    ctx.stroke();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x + 8, feet - height + 22, 26, '255, 50, 30', 0.9);
+    ctx.restore();
+    ctx.fillStyle = '#ff5a3a';
+    ctx.fillRect(x, feet - height + 18, 6, 6);
+    ctx.fillRect(x + 12, feet - height + 18, 6, 6);
+  }
+  // The survivor, huge in the foreground, gun back toward the dead.
+  const hero = { x: 0, y: 0, vy: 0, grounded: true, slide: 0, invulnerable: 0, stride: time * 9 };
+  ctx.save();
+  ctx.translate(560, 640);
+  ctx.scale(3, 3);
+  ctx.globalCompositeOperation = 'source-over';
+  drawRunner(ctx, hero, { x: 120, y: -60 }, Math.sin(time * 8) > 0.6 ? 0.05 : 0, time);
+  ctx.restore();
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, 620, 480, 260, '120, 170, 255', 0.25);
+  ctx.restore();
+}
+
+/** The title: key art, the name, the hook, the controls, and the prompt to run. */
 export function drawTitle(ctx, time, best) {
-  veil(ctx, 0.45);
+  veil(ctx, 0.35);
+  drawKeyArt(ctx, time);
   const pulse = 1 + Math.sin(time * 3) * 0.02;
   ctx.save();
-  ctx.translate(VIEW.width / 2, 150);
+  ctx.translate(VIEW.width / 2 + 120, 110);
   ctx.scale(pulse, pulse);
-  label(ctx, 'LAST MILE', 0, 0, 104, COLORS.ui, 'center');
+  ctx.shadowColor = 'rgba(255, 120, 40, 0.9)';
+  ctx.shadowBlur = 30;
+  label(ctx, 'LAST MILE', 0, 0, 112, COLORS.ui, 'center');
   ctx.restore();
-  label(ctx, 'The city fell. The last chopper leaves from the airfield, 5 km away. Run.', VIEW.width / 2, 230, 24, COLORS.uiText, 'center');
-  panel(ctx, VIEW.width / 2 - 330, 272, 660, 214, 14);
+  label(ctx, 'The city fell. The last chopper leaves in 5 km. The dead are right behind you.', VIEW.width / 2 + 120, 186, 22, COLORS.uiText, 'center');
+  const features = ['5 ZONES', '5 BOSSES', 'RESCUE SURVIVORS', '11 PERKS', 'ENDLESS MODE'];
+  let x = VIEW.width / 2 + 120 - 330;
+  for (const feature of features) {
+    ctx.font = 'bold 15px "Trebuchet MS", sans-serif';
+    const w = ctx.measureText(feature).width + 20;
+    panel(ctx, x, 214, w, 30, 8);
+    label(ctx, feature, x + w / 2, 230, 15, COLORS.ui, 'center');
+    x += w + 10;
+  }
+  panel(ctx, 820, 300, 430, 230, 14);
   const rows = [
-    ['SPACE / W', 'Jump - press again in mid-air to double jump'],
-    ['S / DOWN', 'Slide under wreckage - dive when airborne'],
-    ['MOUSE + CLICK', 'Aim and shoot the dead'],
-    ['E / RIGHT CLICK', 'Throw a molotov'],
-    ['LAND ON A HEAD', 'Stomp a zombie for bonus points'],
+    ['SPACE / W', 'jump, again to double jump'],
+    ['S / DOWN', 'slide under wreckage'],
+    ['MOUSE + CLICK', 'aim and shoot'],
+    ['E / RIGHT CLICK', 'throw a molotov'],
+    ['LAND ON A HEAD', 'stomp a zombie'],
+    ['P  ·  M  ·  R', 'pause · sound · restart'],
   ];
   rows.forEach(([key, action], index) => {
-    label(ctx, key, VIEW.width / 2 - 300, 306 + index * 38, 19, COLORS.ui);
-    label(ctx, action, VIEW.width / 2 - 110, 306 + index * 38, 19, COLORS.uiText, 'left', 'normal');
+    label(ctx, key, 842, 324 + index * 35, 16, COLORS.ui);
+    label(ctx, action, 1000, 324 + index * 35, 16, COLORS.uiText, 'left', 'normal');
   });
-  if (Math.floor(time * 2) % 2 === 0) label(ctx, 'CLICK OR PRESS ENTER TO RUN', VIEW.width / 2, 530, 30, COLORS.ui, 'center');
-  if (best > 0) label(ctx, `Best run: ${best}`, VIEW.width / 2, 572, 20, COLORS.uiDim, 'center');
-  label(ctx, '5 zones  ·  a boss at the end of each  ·  rescue survivors to fight beside you  ·  safe-house perks', VIEW.width / 2, 612, 18, COLORS.uiText, 'center', 'normal');
+  if (Math.floor(time * 2) % 2 === 0) label(ctx, 'CLICK OR PRESS ENTER TO RUN', 1035, 575, 26, COLORS.ui, 'center');
+  if (best > 0) label(ctx, `Best run: ${best}`, 1035, 612, 18, COLORS.uiDim, 'center');
 }
 
 /** The pause card. */

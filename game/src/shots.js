@@ -44,13 +44,19 @@ export function stageShot(name, world) {
     return SCREEN_SAFEHOUSE;
   }
   if (name === 'boss') {
-    playUntil(world, 1, (events, state) => {
+    // Best: the boss fight with fire on the road; failing that, any busy moment of it.
+    const moment = (needFire) => (events, state) => {
       const boss = state.boss;
       if (!boss || boss.zone < 2 || boss.dying > 0) return false;
       const calm = state.hurtFlash === 0 && state.shake < 0.5 && state.runner.invulnerable === 0;
       const busy = state.thrown.some((piece) => piece.x > 420 && piece.x < 820) && state.bullets.length >= 2;
-      return calm && busy && boss.hurt === 0 && boss.hp < boss.maxHp * 0.8 && state.convoy.length >= 1;
-    });
+      const fire = !needFire || state.fires.some((strip) => strip.life > 0.8);
+      return calm && busy && fire && state.ammo >= 4 && boss.hurt === 0 && boss.hp < boss.maxHp * 0.85 && state.convoy.length >= 1;
+    };
+    if (!playUntil(world, 1, moment(true))) {
+      world.reset();
+      playUntil(world, 1, moment(false));
+    }
     return SCREEN_RUN;
   }
   if (name === 'evac') {

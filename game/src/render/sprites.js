@@ -397,7 +397,7 @@ export function drawBoss(ctx, boss, time) {
   }
   // Red glow behind it.
   const aura = ctx.createRadialGradient(x + w / 2, feet - h / 2, 20, x + w / 2, feet - h / 2, h);
-  aura.addColorStop(0, 'rgba(255, 60, 40, 0.35)');
+  aura.addColorStop(0, 'rgba(255, 60, 40, 0.18)');
   aura.addColorStop(1, 'rgba(255, 60, 40, 0)');
   ctx.fillStyle = aura;
   ctx.fillRect(x - h / 2, feet - h * 1.5, w + h, h * 1.6);
@@ -515,9 +515,9 @@ export function drawSurvivor(ctx, survivor, time) {
   ctx.textAlign = 'left';
 }
 
-/** The rescued survivors running behind the runner, each with a pistol. */
-export function drawConvoy(ctx, convoy, runner) {
-  for (const follower of convoy) {
+/** One rescued survivor running behind the runner, pistol out. */
+export function drawFollower(ctx, follower, runner) {
+  {
     const x = convoyX(runner.x, follower.slot);
     const feet = STREET.groundY - follower.lift;
     const shirt = SURVIVOR.colors[follower.look];

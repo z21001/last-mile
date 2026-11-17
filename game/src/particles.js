@@ -2,6 +2,9 @@
 // flames and the floating score numbers. They draw from their own random stream, so they never
 // change how the run plays out.
 
+/** Colours of fire, sparks and gunfire: particles in these glow in the lighting pass. */
+const HOT = new Set(['#ff8a2a', '#ffd27a', '#fff1b0', '#ffcf5a', '#ffe9a0']);
+
 /** A pool of particles, floating texts and flashes. */
 export function createEffects(rng) {
   return { rng, particles: [], floaters: [] };
@@ -27,6 +30,7 @@ export function burst(fx, x, y, color, count, speed, options = {}) {
       size: size * (0.6 + fx.rng.next() * 0.8),
       color,
       gravity,
+      hot: HOT.has(color),
     });
   }
 }
